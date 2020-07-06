@@ -1,0 +1,346 @@
+---
+title: "Análise da pesquisa sobre Teste Comportamental Automatizado de Motores de Refatoração"
+author: "Arthur Felipe Thamay"
+date: "05/07/2020"
+output:
+  html_document:
+    theme: readable
+    df_print: paged
+    toc: yes
+    code_folding: "hide"
+---
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(here)
+library(lubridate)
+library(ggbeeswarm)
+library(ggridges)
+library(ggplot2)
+library(scales)
+library(readr)
+library(dplyr)
+library(tidyr)
+library(gridExtra)
+library(DT)
+source(here::here("code/lib.R"))
+knitr::opts_chunk$set(echo=FALSE)
+theme_set(theme_bw())
+
+```
+
+## Entendendo os dados
+
+Este projeto é uma replicação parcial do experimento ["Automated Behavioral Testing of Refactoring Engines"](http://www.dsc.ufcg.edu.br/~spg/uploads/tse12.pdf) de 
+Soares, Gheyi e Massoni (2013), onde apresenta uma técnica para testar os mecanismos de refatoração Java, automatizando a geração de entrada de teste usando um gerador de programa Java que gera exaustivamente programas para um determinado escopo de declarações.
+
+Inicialmente é necessário ter o conhecimento do que é refatoração. Este por sua vez é uma transformação que preserva o comportamento externo de um programa e melhora sua qualidade interna. Cada refatoração pode conter uma série de pré-condições para garantir sua preservação comportamental. Geralmente, erros de compilação e alterações comportamentais são evitados utilizando pré-condições determinadas para cada transformação de refatoração. No entanto, definir formalmente essas pré-condições e transferi-las para verificações de programas é uma tarefa bastante complexa.
+
+Para a replicação, foi utilizado a aplicação plugin para o Eclipse RefactoringTestPluginASM, onde o mesmo foi atualizado para a versão mais nova do Java (JDK 1.8). As bibliotecas do JDT core também foi atualizada para a v3.21.0. de 2020-03-04 e a JDT UI para v3.10.400 de 2020-02-15, para que a aplicação pudesse ser compilada e executado na versão mais atual, para assim verificar os bugs ainda existentes. Após isso, o JDOLLY será utilizado para gerar programas Java exaustivamente, para que seja aplicado a refatoração selecionada. Ao término da geração, serão mensurados os bugs de compilação gerados, as falhas e o tempo de geração de cada refatoração. Com a reprodução do experimento na nova versão do Java e das bibliotecas do Eclipse, poderemos avaliar se os bugs anteriormente relatados a comunidade de desenvolvedores da ferramenta, foram solucionados.
+
+```{r, echo=TRUE}
+dados = read_projectdata()
+
+glimpse(dados)
+```
+
+Os dados obtidos foram:
+Refatoracao - Métodos de refatoramento utilizados.
+Quantidade - Quantidade de programas testes gerados.
+Programas_compilaveis_% - Quantidade em porcentagem de programas que foram compilados.
+Tempo_de_execucao_hr - Tempo total de execução em horas.
+Falha - Quantidade de falhas encontradas nos testes.
+Bugs - Quantidade de bugs encontrados na execução dos métodos.
+Ano - Ano de execução do experimento.
+
+
+# Visualização dos dados
+
+Uma olhada rápida na distribuição dos dados.
+
+```{r, echo=TRUE}
+skimr::skim(dados)
+```
+
+
+### Sumário dos dados obtidos
+
+Segue abaixo os dados sumarizados.
+
+```{r, echo=TRUE}
+summary(dados)
+```
+
+Tabela com o resumo dos dados.
+
+```{r, echo=TRUE}
+resumoDados <- dados %>% 
+        summarise(Refatoracoes=length(Refatoracao), 
+                  Quantidade=sum(Quantidade),
+                  `Programas compilaveis %`=round(mean(`Programas compilaveis %`),2), 
+                  'Tempo Execucao'=round(sum(`Tempo de execucao hr`),2),
+                  Falha=round(sum(Falha),2),
+                  Bugs=sum(Bugs))
+resumoDados
+```
+
+
+Quantidade de dias para que fossem executados todos os métodos
+
+```{r, echo=TRUE}
+diasExecucao <- dados %>% 
+        summarise('Tempo execucao em horas'=round(sum(`Tempo de execucao hr`),2)/24)
+diasExecucao
+
+```
+
+
+### Entendo os dados
+
+Foram gerados um total de 154.040 programas, no experimento atual, distribuídos em 10 refatorações do Eclipse JDT. As refatorações utilizadas foram: AddParameter, EncapsulateField, MoveMethod, PullUpField, PullUpMethod, PushDownField, PushDownMethod, RenameField, RenameMethod e RenameType. 
+Em geral, a amostra será relativamente pequena. É definida como probabilística e aleatória. A seleção inicial demonstra que a amostragem é em grupo.
+
+Vamos visualizar a comparação entre a quantidade de programas gerados em relação a cada refatoramento.
+
+
+```{r, echo=TRUE}
+# Gráfico de barras da quantidade de programas gerados por cada refatoramento
+dados %>% 
+    ggplot() + 
+    geom_bar(mapping = aes(
+        x = Refatoracao, 
+        y = Quantidade), 
+        stat = "identity", 
+            colour = "black", 
+            fill = "#5358c2") +
+    labs(title = "Quantidade de programas gerados para cada refatoramento", 
+       subtitle = "Ano do experimento - 2020",
+       x = "Refatoracao", 
+         y = "Quantidade") +
+  theme(axis.text.x = element_text(angle = 65, hjust = 1))
+```
+
+
+```{r, echo=TRUE}
+# Gráfico de barras da quantidade de Programas Compilaveis % por cada refatoramento
+dados %>% 
+    ggplot() + 
+    geom_bar(mapping = aes(
+        x = Refatoracao, 
+        y = `Programas compilaveis %`), 
+        stat = "identity", 
+            colour = "black", 
+            fill = "#53c2be") +
+    labs(title = "Quantidade de Programas Compilaveis % por cada refatoramento", 
+       subtitle = "Ano do experimento - 2020",
+       x = "Refatoracao", 
+         y = "Programas compilaveis %")+
+  theme(axis.text.x = element_text(angle = 65, hjust = 1))
+```
+
+
+```{r, echo=TRUE}
+# Gráfico de barras da quantidade de tempo para cada refatoramento
+dados %>% 
+    ggplot() + 
+    geom_bar(mapping = aes(
+        x = Refatoracao, 
+        y = `Tempo de execucao hr`), 
+        stat = "identity", 
+            colour = "black", 
+            fill = "#ac53c2") +
+    labs(title = "Quantidade de tempo para cada refatoramento", 
+       subtitle = "Ano do experimento - 2020",
+       x = "Refatoracao", 
+         y = "Tempo de execucao hr")+
+  theme(axis.text.x = element_text(angle = 65, hjust = 1))
+```
+
+```{r, echo=TRUE}
+# Gráfico de barras da quantidade de falhas por cada refatoramento
+dados %>% 
+    ggplot() + 
+    geom_bar(mapping = aes(
+        x = Refatoracao, 
+        y = Falha), 
+        stat = "identity", 
+            colour = "black", 
+            fill = "#53c265") +
+    labs(title = "Quantidade de falhas por cada refatoramento", 
+       subtitle = "Ano do experimento - 2020",
+       x = "Refatoracao", 
+         y = "Falha")+
+  theme(axis.text.x = element_text(angle = 65, hjust = 1))
+```
+
+
+```{r, echo=TRUE}
+# Gráfico de barras da quantidade de bugs por cada refatoramento
+dados %>% 
+    ggplot() + 
+    geom_bar(mapping = aes(
+        x = Refatoracao, 
+        y = Bugs), 
+        stat = "identity", 
+            colour = "black", 
+            fill = "#bec253") +
+    labs(title = "Quantidade de bugs por cada refatoramento", 
+       x = "Refatoracao", 
+         y = "Bugs")+
+  theme(axis.text.x = element_text(angle = 65, hjust = 1))
+```
+
+# Comparação dos dados obtidos anteriormente
+
+
+```{r, echo=TRUE}
+dados2 = read_projectdata2()
+
+glimpse(dados2)
+```
+
+
+```{r}
+# Resumo dos dados
+resumoDados2 <- dados2 %>% 
+        filter(Ano==2013) %>% 
+        summarise(Refatoracoes=length(Refatoracao), 
+                  Quantidade=sum(Quantidade),
+                  `Programas compilaveis %`=round(mean(`Programas compilaveis %`),2), 
+                  'Tempo Execucao'=round(sum(`Tempo de execucao hr`),2),
+                  Falha=round(sum(Falha),2),
+                  Bugs=sum(Bugs))
+resumoDados2
+resumoDados
+
+mediaBugs <- dados2 %>% 
+    group_by(Ano) %>% 
+        summarise(Media=round(mean(Bugs),2),
+        D_Padrao=round(sd(Bugs),2), Max=round(max(Bugs),2), Min=round(min(Bugs),2),
+        Mediana=round(median(Bugs),2))
+mediaBugs
+
+mediaFalhas <- dados2 %>% 
+    group_by(Ano) %>% 
+        summarise(Media=round(mean(Falha),2),
+        D_Padrao=round(sd(Falha),2), Max=round(max(Falha),2), Min=round(min(Falha),2),
+        Mediana=round(median(Falha),2))
+mediaFalhas
+```
+
+
+A partir da análise dos dados obtidos no experimento anterior, temos uma média de 1,6 bugs. O desvio padrão associado a estes dados é de 0,7, indicando que os valores estão próximos à média. Como o número de bugs assume valores inteiros, é um indicativo de que a maioria dos refatoramentos tem entre 1 e 2 bugs, corroborando com os valores observados na amostra do experimento. 
+Da mesma forma, o experimento atual, assume um valor médio para bugs de 0,9 bugs, com desvio padrão de 0,32, um valor muito baixo. O indicativo é que o número de bugs encontra-se entre 0 e 1, onde a maioria dos refatoramentos possui 1 bug e uma minoria pequena não possui bugs. 
+Os valores de máximo e mínimo associados para cada experimento confirmam essa análise.
+
+Para os dados obtidos de falhas no experimento anterior, temos uma média de 613,4. O desvio padrão associado a estes dados é de 528,67, indicando que um grande número de amostras pode assumir valores distantes à média. Apesar do número de falhas assumir valores inteiros, com o desvio padrão muito alto, não há como estimar onde se encontram a maioria dos dados, podendo assumir valores aleatoriamente entre 48 (mínimo) e 1663 (máximo). 
+Da mesma forma, o experimento atual, assume um valor médio para falhas de 613,4, com desvio padrão de 518,68, consideravelmente alto. O indicativo é que o número de falhas perpassa arbitrariamente por todo o intervalo entre 0 (mínimo) e 1468 (máximo).
+
+
+```{r, echo=TRUE}
+# Gráfico comparativo da quantidade de programas gerados por cada refatoramento
+dados2 %>% 
+    ggplot(aes(x = Refatoracao, 
+               y = Quantidade, 
+               fill = factor(Ano))) +
+    geom_col(position = "dodge", 
+               colour="black") +
+        labs(title = "Quantidade de programas gerados para cada refatoramento",
+            x = "Refatoracao", 
+            y = "Quantidade") +
+        theme(axis.text.x = element_text(angle = 65, hjust = 1)) +
+    guides(fill=guide_legend(title="Ano"))
+
+# Gráfico comparativo da quantidade de falhas por cada refatoramento
+dados2 %>% 
+    ggplot(aes(x = Refatoracao, 
+               y = Falha, 
+               fill = factor(Ano))) +
+    geom_col(position = "dodge", 
+               colour="black") +
+        labs(title = "Quantidade de falhas por cada refatoramento",
+            x = "Refatoracao", 
+            y = "Quantidade") +
+        theme(axis.text.x = element_text(angle = 65, hjust = 1)) +
+    guides(fill=guide_legend(title="Ano"))
+
+# Gráfico comparativo da quantidade de bugs por cada refatoramento
+dados2 %>% 
+    ggplot(aes(x = Refatoracao, 
+               y = Bugs, 
+               fill = factor(Ano))) +
+    geom_col(position = "dodge", 
+               colour="black") +
+        labs(title = "Quantidade de bugs por cada refatoramento",
+            x = "Refatoracao", 
+            y = "Quantidade") +
+        theme(axis.text.x = element_text(angle = 65, hjust = 1)) +
+    guides(fill=guide_legend(title="Ano"))
+```
+
+# Examinando a correlação
+```{r, echo=TRUE}
+falhaDados1 <- dados %>% 
+        filter(Ano==2020) %>% 
+        summarise(dados = Falha)
+
+bugsDados1 <- dados %>% 
+        filter(Ano==2020) %>% 
+        summarise(bugs = Bugs)
+
+tempoDados1 <- dados %>% 
+        filter(Ano==2020) %>% 
+        summarise(tempo = `Tempo de execucao hr`)
+
+falhaDados2 <- dados2 %>% 
+        filter(Ano==2013) %>% 
+        summarise(falha = Falha)
+
+bugsDados2 <- dados2 %>% 
+        filter(Ano==2013) %>% 
+        summarise(bugs = Bugs)
+
+tempoDados2 <- dados2 %>% 
+        filter(Ano==2013) %>% 
+        summarise(tempo = `Tempo de execucao hr`)
+
+corFalha <- cor(falhaDados1, falhaDados2, method = "pearson")
+corBugs <- cor(bugsDados1, bugsDados2, method = "pearson")
+corTempo <- cor(tempoDados1, tempoDados2, method = "pearson")
+
+data.frame(corFalha,corBugs,corTempo)
+
+
+# Gráfico correlação Falha
+dados %>% 
+  filter(!is.na(Falha)) %>%
+ggplot(aes(x = unlist(falhaDados1), y = unlist(falhaDados2))) + 
+  geom_smooth(formula = y ~ x, color = "red", se = FALSE, method = "lm") +
+    geom_jitter() +
+  labs(x = "Falhas experimento 1", 
+       y = "Falhas experimento 2",
+       title = "Relação entre falhas encontradas nos experimentos")
+
+# Gráfico correlação Bugs
+dados %>% 
+  filter(!is.na(Bugs)) %>%
+ggplot(aes(x = unlist(bugsDados1), y = unlist(bugsDados2))) + 
+  geom_smooth(formula = y ~ x, color = "red", se = FALSE, method = "lm") +
+    geom_jitter() +
+  labs(x = "Bugs experimento 1", 
+       y = "Bugs experimento 2",
+       title = "Relação entre bugs encontrados nos experimentos")
+
+# Gráfico correlação Tempo
+dados %>% 
+  filter(!is.na(`Tempo de execucao hr`)) %>%
+ggplot(aes(x = unlist(tempoDados1), y = unlist(tempoDados2))) + 
+  geom_smooth(formula = y ~ x, color = "red", se = FALSE, method = "lm") +
+    geom_jitter() +
+  labs(x = "Tempo experimento 1", 
+       y = "Tempo experimento 2",
+       title = "Relação entre tempo de execução entre os experimentos")
+```
+
+
+A partir dos dados obtidos atualmente, em relação ao anterior, foi gerada a correlação pelo coeficiente de Pearson. É visto que o coeficiente de Pearson é utilizado para dados normais e uma relação que parece linear. Com isso, obtivemos os resultados para falha, bugs e tempo, respectivamente: 0.8020524,	-0.7035265 e 0.5264239. Observamos que "falha" descreve uma correlação forte, com sinal positivo, indicando que as duas variáveis (falhas em 2013 e falhas em 2020) moveram-se juntas, com alterações de variação semelhantes. "Bugs" descreve uma correlação forte com sinal negativo, indicando que as duas variáveis (falhas em 2013 e falhas em 2020) movem-se em direções opostas. A correlação entre as variáveis "tempo" (tempo em 2013 e tempo em 2020), assume um valor moderado, com sinal também positivo.

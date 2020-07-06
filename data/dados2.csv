@@ -1,0 +1,21 @@
+Refatoracao,Quantidade,Programas compilaveis %,Tempo de execucao hr,Falha,Bugs,Ano
+AddParameter,30186,66.07,98.24,1468,1,2020
+EncapsulateField,2000,92.8,48,238,1,2020
+MoveMethod,22905,69.03,49.18,118,1,2020
+PullUpField,10928,42.75,12.26,85,1,2020
+PullUpMethod,8937,71.53,6.16,269,1,2020
+PushDownField,11936,79.08,12.26,342,1,2020
+PushDownMethod,20544,78.48,12.25,1267,1,2020
+RenameField,19424,79.16,12.29,48,1,2020
+RenameMethod,11264,79.47,10.29,595,1,2020
+RenameType,15916,74.40,21.29,0,0,2020
+AddParameter,30186,34.69,34.69,1663,2,2013
+EncapsulateField,2000,92.8,2.5,238,1,2013
+MoveMethod,22905,69,10.3,214,2,2013
+PullUpField,10927,79.7,8.6,518,1,2013
+PullUpMethod,8937,72,7.3,269,2,2013
+PushDownField,11936,79.1,6,342,1,2013
+PushDownMethod,20544,78.5,11.9,1267,2,2013
+RenameField,19424,79.2,29.3,48,1,2013
+RenameMethod,11263,79.5,6.9,559,1,2013
+RenameType,15322,74.3,6.7,1016,3,2013
